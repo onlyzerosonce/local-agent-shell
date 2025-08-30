@@ -20,7 +20,17 @@ const io = new Server(server, {
 // Middleware
 app.use(express.json());
 app.use(cors());
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "https://cdn.jsdelivr.net"],
+        "script-src-elem": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+      },
+    },
+  })
+);
 app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'public')));
 

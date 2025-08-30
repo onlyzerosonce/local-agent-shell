@@ -22,6 +22,7 @@
 <body>
   <div id="terminal"></div>
   <script>
+    console.log('Script starting...');
     const term = new Terminal({
       cursorBlink: true,
       theme: {
@@ -29,6 +30,7 @@
         foreground: '#ffffff'
       }
     });
+    console.log('Terminal object created:', term);
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
     term.open(document.getElementById('terminal'));
@@ -39,6 +41,8 @@
     });
 
     const socket = io();
+    console.log('Socket object created:', socket);
+
 
     term.onData(data => {
       socket.emit('terminal:write', data);
@@ -55,6 +59,7 @@
     socket.on('disconnect', () => {
       console.log('Disconnected from server');
     });
+    console.log('Script finished.');
   </script>
 </body>
 </html>
