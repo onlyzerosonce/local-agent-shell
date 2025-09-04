@@ -68,14 +68,20 @@ io.on('connection', (socket) => {
 
   // Handle data sent from the client terminal.
   socket.on('terminal:write', function (message) {
-    if (typeof message === 'object' && message.source === 'automation') {
-      // Input from automation
-      console.log(`Input from automation (socket ${socket.id}): `, message.data);
+    // Check if the message is an object with a 'data' property (from automation or standardized user input)
+    if (message && message.data && typeof message.data === 'string') {
+      const source = message.source || 'automation'; // Default to automation if source is not specified
+      console.log(`Input from ${source} (socket ${socket.id}): `, message.data);
       ptyProcess.write(message.data);
-    } else {
-      // Input from user typing
+    }
+    // Check if the message is a direct string (from user typing)
+    else if (typeof message === 'string') {
       console.log(`Input from user (socket ${socket.id}): `, message);
       ptyProcess.write(message);
+    }
+    // Log an error for any other format
+    else {
+      console.error(`Received invalid data format for 'terminal:write' from socket ${socket.id}:`, message);
     }
   });
 
