@@ -34,39 +34,50 @@ app.use(
 app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Determine the shell based on the OS
+const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+
+// Spawn a single pty process for the entire application
+const ptyProcess = pty.spawn(shell, [], {
+  name: 'xterm-color',
+  cols: 80,
+  rows: 30,
+  cwd: process.env.HOME,
+  env: process.env,
+});
+console.log(`PTY process created with PID: ${ptyProcess.pid}`);
+
+// Pipe PTY output to all connected sockets
+ptyProcess.on('data', function (data) {
+  io.emit('terminal:data', data);
+});
+
 // Socket.io connection for terminal
 io.on('connection', (socket) => {
   console.log('A user connected to the terminal.');
 
-  // Determine the shell based on the OS
-  const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
-
-  // Spawn a new pty process
-  const ptyProcess = pty.spawn(shell, [], {
-    name: 'xterm-color',
-    cols: 80,
-    rows: 30,
-    cwd: process.env.HOME,
-    env: process.env
-  });
-
-  console.log(`PTY process created with PID: ${ptyProcess.pid}`);
-
-  // Pipe data from pty to socket
-  ptyProcess.on('data', function (data) {
-    socket.emit('terminal:data', data);
-  });
-
-  // Pipe data from socket to pty
+  // Handle incoming data from the client
   socket.on('terminal:write', function (data) {
+    console.log('Input from user: ', data);
     ptyProcess.write(data);
   });
 
-  // Handle client disconnection
   socket.on('disconnect', () => {
     console.log('User disconnected from the terminal.');
-    ptyProcess.kill();
   });
+});
+
+// API endpoint to execute commands
+app.post('/api/exec', (req, res) => {
+  const { command } = req.body;
+  if (command) {
+    console.log('Input from automation: ', command);
+    // Add a newline character to execute the command
+    ptyProcess.write(command + '\n');
+    res.status(200).send({ message: 'Command executed' });
+  } else {
+    res.status(400).send({ message: 'Command not provided' });
+  }
 });
 
 // Basic Route

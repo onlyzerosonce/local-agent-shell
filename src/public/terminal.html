@@ -59,7 +59,29 @@
     socket.on('disconnect', () => {
       console.log('Disconnected from server');
     });
-    console.log('Script finished.');
+
+    // --- Automation Support ---
+
+    // Function to execute a command via API
+    window.executeCommand = (command) => {
+      fetch('/api/exec', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ command }),
+      })
+      .then(response => response.json())
+      .then(data => console.log(data.message))
+      .catch(error => console.error('Error executing command:', error));
+    };
+
+    // Function to focus the terminal
+    window.focusTerminal = () => {
+      term.focus();
+    };
+
+    console.log('Script finished, automation functions are ready.');
   </script>
 </body>
 </html>
