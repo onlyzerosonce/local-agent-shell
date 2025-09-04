@@ -61,27 +61,67 @@
     });
 
     // --- Automation Support ---
+    // These functions can be called from the browser console or by other scripts.
 
-    // Function to execute a command via API
-    window.executeCommand = (command) => {
+    /**
+     * Returns the current socket ID.
+     * @returns {string|null} The socket ID, or null if not connected.
+     */
+    window.getSocketId = () => {
+      return socket.id || null;
+    };
+
+    /**
+     * Executes a command by sending it to the backend via the /api/exec endpoint.
+     * This requires the socketId of the target terminal.
+     * @param {string} command - The command to execute.
+     * @param {string} socketId - The socket ID of the terminal session.
+     */
+    window.executeCommand = (command, socketId) => {
+      if (!socketId) {
+        console.error('[Automation] `socketId` is required for `executeCommand`.');
+        return;
+      }
+      console.log(`[Automation] Executing command via API for socket ${socketId}: ${command}`);
       fetch('/api/exec', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ command }),
+        body: JSON.stringify({ command, socketId }),
       })
       .then(response => response.json())
-      .then(data => console.log(data.message))
-      .catch(error => console.error('Error executing command:', error));
+      .then(data => console.log(`[Automation] API Response: ${data.message}`))
+      .catch(error => console.error('[Automation] Error executing command via API:', error));
     };
 
-    // Function to focus the terminal
+    /**
+     * Programmatically types text into the terminal, simulating user input.
+     * Sends a structured object to the backend to identify the source as automation.
+     * @param {string} text - The text to type.
+     */
+    window.typeInTerminal = (text) => {
+      console.log(`[Automation] Typing text: ${text}`);
+      socket.emit('terminal:write', { source: 'automation', data: text });
+    };
+
+    /**
+     * Sends an "Enter" key press to the terminal to execute a typed command.
+     */
+    window.sendEnterKey = () => {
+      console.log('[Automation] Sending Enter key');
+      socket.emit('terminal:write', { source: 'automation', data: '\n' });
+    };
+
+    /**
+     * Focuses the terminal input.
+     */
     window.focusTerminal = () => {
+      console.log('[Automation] Focusing terminal');
       term.focus();
     };
 
-    console.log('Script finished, automation functions are ready.');
+    console.log('Script finished. Automation functions (executeCommand, typeInTerminal, sendEnterKey, focusTerminal) are ready.');
   </script>
 </body>
 </html>

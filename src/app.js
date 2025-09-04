@@ -34,49 +34,89 @@ app.use(
 app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Determine the shell based on the OS
-const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+// --- Terminal Management ---
 
-// Spawn a single pty process for the entire application
-const ptyProcess = pty.spawn(shell, [], {
-  name: 'xterm-color',
-  cols: 80,
-  rows: 30,
-  cwd: process.env.HOME,
-  env: process.env,
-});
-console.log(`PTY process created with PID: ${ptyProcess.pid}`);
+// This map will store the pseudo-terminal (pty) process for each connected socket.
+const ptyProcesses = new Map();
 
-// Pipe PTY output to all connected sockets
-ptyProcess.on('data', function (data) {
-  io.emit('terminal:data', data);
-});
+// --- Socket.io Connection Handling ---
 
-// Socket.io connection for terminal
 io.on('connection', (socket) => {
-  console.log('A user connected to the terminal.');
+  console.log(`A user connected with socket ID: ${socket.id}`);
 
-  // Handle incoming data from the client
-  socket.on('terminal:write', function (data) {
-    console.log('Input from user: ', data);
-    ptyProcess.write(data);
+  // Determine the shell based on the OS.
+  const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+
+  // Spawn a new pty process for this socket connection.
+  const ptyProcess = pty.spawn(shell, [], {
+    name: 'xterm-color',
+    cols: 80,
+    rows: 30,
+    cwd: process.env.HOME,
+    env: process.env,
   });
 
+  // Store the pty process for this socket.
+  ptyProcesses.set(socket.id, ptyProcess);
+  console.log(`PTY process created for socket ${socket.id} with PID: ${ptyProcess.pid}`);
+
+
+  // Pipe the output of the pty process to the corresponding socket client.
+  ptyProcess.on('data', function (data) {
+    socket.emit('terminal:data', data);
+  });
+
+  // Handle data sent from the client terminal.
+  socket.on('terminal:write', function (message) {
+    if (typeof message === 'object' && message.source === 'automation') {
+      // Input from automation
+      console.log(`Input from automation (socket ${socket.id}): `, message.data);
+      ptyProcess.write(message.data);
+    } else {
+      // Input from user typing
+      console.log(`Input from user (socket ${socket.id}): `, message);
+      ptyProcess.write(message);
+    }
+  });
+
+  // Clean up when the user disconnects.
   socket.on('disconnect', () => {
-    console.log('User disconnected from the terminal.');
+    console.log(`User with socket ID: ${socket.id} disconnected.`);
+    // Kill the pty process associated with this socket.
+    ptyProcess.kill();
+    // Remove the pty process from the map.
+    ptyProcesses.delete(socket.id);
+    console.log(`PTY process for socket ${socket.id} killed.`);
   });
 });
 
-// API endpoint to execute commands
+// --- API Endpoints ---
+
+/**
+ * @api {post} /api/exec Execute a command in a specific terminal session
+ * @apiName ExecuteCommand
+ * @apiGroup Automation
+ *
+ * @apiParam {String} command The command to execute.
+ * @apiParam {String} socketId The ID of the socket/terminal session to execute the command in.
+ *
+ * @apiSuccess {Object} message Confirmation message.
+ * @apiError   {Object} message Error message.
+ */
 app.post('/api/exec', (req, res) => {
-  const { command } = req.body;
-  if (command) {
-    console.log('Input from automation: ', command);
-    // Add a newline character to execute the command
+  const { command, socketId } = req.body;
+
+  if (!command || !socketId) {
+    return res.status(400).send({ message: 'Request body must include "command" and "socketId".' });
+  }
+
+  const ptyProcess = ptyProcesses.get(socketId);
+  if (ptyProcess) {
+    console.log(`Executing command for socket ${socketId}: ${command}`);
     ptyProcess.write(command + '\n');
-    res.status(200).send({ message: 'Command executed' });
+    res.status(200).send({ message: `Command '${command}' executed in session ${socketId}.` });
   } else {
-    res.status(400).send({ message: 'Command not provided' });
+    res.status(404).send({ message: `No active terminal session found for socketId: ${socketId}` });
   }
 });
 
