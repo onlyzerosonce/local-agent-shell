@@ -12,15 +12,41 @@
       padding: 0;
       height: 100%;
       background-color: #000;
+      display: flex;
+      flex-direction: column;
     }
     #terminal {
-      height: 100%;
+      flex-grow: 1;
       width: 100%;
+    }
+    #command-container {
+      display: flex;
+      padding: 5px;
+      background-color: #252525;
+    }
+    #command-input {
+      flex-grow: 1;
+      background-color: #333;
+      color: white;
+      border: 1px solid #555;
+      padding: 5px;
+    }
+    #run-button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      margin-left: 5px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <div id="terminal"></div>
+  <div id="command-container">
+    <input type="text" id="command-input" placeholder="Enter command...">
+    <button id="run-button">Run</button>
+  </div>
   <script>
     console.log('Script starting...');
     const term = new Terminal({
@@ -120,6 +146,21 @@
       console.log('[Automation] Focusing terminal');
       term.focus();
     };
+
+    document.getElementById('run-button').addEventListener('click', () => {
+      const commandInput = document.getElementById('command-input');
+      const command = commandInput.value;
+      if (command) {
+        socket.emit('terminal:write', command + '\n');
+        commandInput.value = ''; // Clear the input after sending
+      }
+    });
+
+    document.getElementById('command-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('run-button').click();
+      }
+    });
 
     console.log('Script finished. Automation functions (executeCommand, typeInTerminal, sendEnterKey, focusTerminal) are ready.');
   </script>
