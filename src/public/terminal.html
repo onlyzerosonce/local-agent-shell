@@ -14,13 +14,50 @@
       background-color: #000;
     }
     #terminal {
-      height: 100%;
+      height: 90%;
       width: 100%;
+    }
+    #command-bar {
+      width: 100%;
+      background: #111;
+      padding: 10px;
+      box-sizing: border-box;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #commandInput {
+      flex: 1;
+      padding: 6px 8px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 4px;
+      font-size: 1em;
+    }
+    #sendCommandBtn {
+      padding: 6px 16px;
+      background: #0af;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    #sendCommandBtn:hover {
+      background: #09c;
     }
   </style>
 </head>
 <body>
   <div id="terminal"></div>
+  <div id="command-bar">
+    <input type="text" id="commandInput" placeholder="Type command..." autocomplete="off" />
+    <button id="sendCommandBtn">Run</button>
+  </div>
   <script>
     console.log('Script starting...');
     const term = new Terminal({
@@ -42,7 +79,6 @@
 
     const socket = io();
     console.log('Socket object created:', socket);
-
 
     term.onData(data => {
       socket.emit('terminal:write', data);
@@ -121,7 +157,32 @@
       term.focus();
     };
 
-    console.log('Script finished. Automation functions (executeCommand, typeInTerminal, sendEnterKey, focusTerminal) are ready.');
+    // --- Command Input Bar Handling ---
+    const commandInput = document.getElementById('commandInput');
+    const sendCommandBtn = document.getElementById('sendCommandBtn');
+
+    function sendCommand() {
+      const command = commandInput.value.trim();
+      if (command) {
+        socket.emit('terminal:write', { source: 'webui', data: command + '\n' });
+        commandInput.value = '';
+        commandInput.focus();
+      }
+    }
+
+    sendCommandBtn.addEventListener('click', sendCommand);
+    commandInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') sendCommand();
+    });
+
+    // Optional: Focus input on load
+    window.onload = () => {
+      commandInput.focus();
+    };
+
+    // Optional: Resize terminal when layout changes
+    const observer = new ResizeObserver(() => fitAddon.fit());
+    observer.observe(document.body);
   </script>
 </body>
 </html>
