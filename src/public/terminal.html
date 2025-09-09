@@ -13,8 +13,18 @@
       height: 100%;
       background-color: #000;
     }
+    #outputBox {
+      background: #111;
+      color: #fff;
+      padding: 10px;
+      max-height: 200px;
+      overflow: auto;
+      font-family: monospace;
+      font-size: 0.95em;
+      border-bottom: 1px solid #222;
+    }
     #terminal {
-      height: 90%;
+      height: 80%;
       width: 100%;
     }
     #command-bar {
@@ -53,6 +63,7 @@
   </style>
 </head>
 <body>
+  <div id="outputBox"></div>
   <div id="terminal"></div>
   <div id="command-bar">
     <input type="text" id="commandInput" placeholder="Type command..." autocomplete="off" />
@@ -84,8 +95,23 @@
       socket.emit('terminal:write', data);
     });
 
+    // Buffer to accumulate output per command
+    let currentOutput = "";
+
     socket.on('terminal:data', data => {
       term.write(data);
+
+      // --- Output to HTML box ---
+      const outputBox = document.getElementById('outputBox');
+      // Optionally escape HTML special characters for safety
+      const safe = data.replace(/[&<>]/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;'
+      }[c]));
+      outputBox.innerHTML += `<div>${safe}</div>`;
+      outputBox.scrollTop = outputBox.scrollHeight;
+
+      // Optional: Also keep a buffer for programmatic access
+      currentOutput += data;
     });
 
     socket.on('connect', () => {
@@ -157,6 +183,19 @@
       term.focus();
     };
 
+    /**
+     * Returns the current HTML output for AI/automation.
+     */
+    window.getCurrentTerminalOutputHTML = () => {
+      return document.getElementById('outputBox').innerHTML;
+    };
+    /**
+     * Returns the raw output buffer for the last command.
+     */
+    window.getCurrentTerminalOutputRaw = () => {
+      return currentOutput;
+    };
+
     // --- Command Input Bar Handling ---
     const commandInput = document.getElementById('commandInput');
     const sendCommandBtn = document.getElementById('sendCommandBtn');
@@ -165,6 +204,10 @@
       const command = commandInput.value.trim();
       if (command) {
         socket.emit('terminal:write', { source: 'webui', data: command + '\n' });
+        // Clear output box for new command
+        document.getElementById('outputBox').innerHTML = '';
+        // Reset output buffer
+        currentOutput = "";
         commandInput.value = '';
         commandInput.focus();
       }
