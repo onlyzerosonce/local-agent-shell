@@ -95,6 +95,14 @@
       socket.emit('terminal:write', data);
     });
 
+    // Helper: Strip ANSI escape codes for HTML display
+    function stripAnsi(str) {
+      return str.replace(
+        /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g,
+        ''
+      );
+    }
+
     // Buffer to accumulate output per command
     let currentOutput = "";
 
@@ -103,8 +111,8 @@
 
       // --- Output to HTML box ---
       const outputBox = document.getElementById('outputBox');
-      // Optionally escape HTML special characters for safety
-      const safe = data.replace(/[&<>]/g, c => ({
+      // Strip ANSI codes for HTML box
+      const safe = stripAnsi(data).replace(/[&<>]/g, c => ({
         '&':'&amp;','<':'&lt;','>':'&gt;'
       }[c]));
       outputBox.innerHTML += `<div>${safe}</div>`;
